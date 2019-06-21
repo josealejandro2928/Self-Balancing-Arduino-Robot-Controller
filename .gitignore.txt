@@ -1,0 +1,4 @@
+.vscode/
+.gitignore/
+.ipch/
+.bin/
