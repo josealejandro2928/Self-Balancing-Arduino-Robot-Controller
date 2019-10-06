@@ -50,6 +50,7 @@ float speed_M2 = 0.0;              ////rad/s
 float L_M1 = 0.0;                  ////displacement of wheel M1
 float L_M2 = 0.0;                  ////displacement of wheel M2
 int GO2GoalMode = 0; 
+unsigned int  recargaTimer = 3035;////Timer1 Recharger to 25ms
 ///////////////////////MPU Global Variables////////////////////
 MPU6050 sensor;
 int ax, ay, az;
@@ -74,14 +75,14 @@ float Kd_i = 1.75;
 ///////////Velocity Controller///////////////////////////////////////
 float sp_velocity = 0.0;
 float Kc_v = 9.75;
-float Ki_v = 4.75;
-float Kd_v = 0.125;
+float Ki_v = 5.25;
+float Kd_v = 0.155;
 float max_angle_output = 8.5;
 ////////////////////// Steering Controller ///////////////////////
 float sp_angular_velocity = 0.0;
-float Kc_w = 18.5;
-float Ki_w = 10.0;
-float Kd_w = 0.125;
+float Kc_w = 20.5;
+float Ki_w = 12.5;
+float Kd_w = 0.15;
 float PWM_W_controller = 0.0; ///Salida en PWM////
 ////////////////////////Point Tracker Controller///////////
 float Kc_pos = 1.0;
@@ -138,7 +139,7 @@ int deadZone = 0;
 /////////////////////////////////////////////////////////////////
 ///////////Batery Variables/////////
 int pinA0 = A0;
-float charge = 0.0;
+volatile float charge = 0.0;
 
 void setup()
 {
@@ -152,6 +153,7 @@ void setup()
     prev_time_inclination = micros();
     prev_time_velocity = micros();
     interrupts();
+    initSamplingBattery();
 }
 
 void loop()
@@ -233,8 +235,6 @@ void getState(float dt)
     else{
         robotTheta = angle2PI( angle2PI(robotTheta) + angle2PI(angular_velocity_encoders*dt) );
     }
-
-    getBattery();
     
 }
 
@@ -412,9 +412,22 @@ void L298N_move(int speedM1, int speedM2)
 ///////////////Battery Status//////////////
 void getBattery(){
   float x = 1.0206*analogRead(pinA0) - 886.9202;
-  charge = 0.99*charge + 0.01*x;
+  charge = 0.75*charge + 0.25*x;
   charge = constrain(charge,0.0,100.0);
   }
+
+//////TiMer Configuration for Sampling the battery ////
+void initSamplingBattery()
+{
+  TCCR1A = 0x00; 
+  TCCR1B = 0x04;  
+  TCNT1H = ((recargaTimer>>8)&0x00FF); 
+  TCNT1L = ((recargaTimer)&0x00FF); 
+  TIMSK1 = 0x01; 
+  TIFR1 = 0x00;  
+}
+
+//////////////////////////////////////////////////
 //////// Bluetooth Protocol Interface////////
 void  BluetoothSerial()
 {
@@ -531,6 +544,11 @@ float bytesToFloat(unsigned char data[4])
   *((unsigned char *)(&output) + 1) = data[1];
   *((unsigned char *)(&output) + 0) = data[0];
   return output;
+}
+
+/////////SUBRRUTINE To Timer1 INTERRUPT//////////////
+ISR(TIMER1_OVF_vect){
+  getBattery();
 }
 
 float angle2PI(float angle){
