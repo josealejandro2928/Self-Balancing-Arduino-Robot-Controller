@@ -8,5 +8,7 @@ The folder 'arduino_code' contains the main code, inside the folder 'My Classes'
 Watch videos of the robot in this links:
 
 https://youtu.be/mijxUfsSrdE
+https://youtu.be/dg8ftpSStIc
+https://youtu.be/O6BeBPsemHU
 
 Watch images of the robot in the 'Robot Images' folder.
