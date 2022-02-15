@@ -20,8 +20,8 @@ unsigned char bufferData[4] = {0, 0, 0, 0};
 
 //////////////Robot Constant////////////////////////////////////
 #define MIN_ABS_SPEED 58              //// Minima señal de PWM a la que los motores se mueven : punto muerto para los motores
-#define SAMPLE_TIME_VELOCITY 20000    //microsegundos - 20 ms PID de velocidad
-#define SAMPLE_TIME_INCLINATION 10000 //microsegundos - 10 ms PID de inclinacion
+#define SAMPLE_TIME_VELOCITY 20000    // microsegundos - 20 ms PID de velocidad
+#define SAMPLE_TIME_INCLINATION 10000 // microsegundos - 10 ms PID de inclinacion
 #define REVOLUTION_STEPS 1920.0
 #define WhEEL_RADIUS 0.048
 #define WhEEL_DISTANCE 0.245
@@ -33,21 +33,21 @@ unsigned char bufferData[4] = {0, 0, 0, 0};
 #define ENCODER_M1_B 18
 #define ENCODER_M2_A 2
 #define ENCODER_M2_B 19
-volatile int stateEA_M1 = 1; //RISING
-volatile int stateEB_M1 = 1; //RISING
-volatile int stateEA_M2 = 1; //RISING
-volatile int stateEB_M2 = 1; //RISING
+volatile int stateEA_M1 = 1; // RISING
+volatile int stateEB_M1 = 1; // RISING
+volatile int stateEA_M2 = 1; // RISING
+volatile int stateEB_M2 = 1; // RISING
 
 //////////////////////////ROBOT ESTATE/////////////////////////
-float inclination = 0.0;               ///degrees
+float inclination = 0.0;               /// degrees
 float velocity = 0.0;                  ////m/s
 float angular_velocity = 0.0;          //// rad/s
-float angular_velocity_gyro = 0.0;     ///rad/s
-float angular_velocity_encoders = 0.0; ///rad/s
+float angular_velocity_gyro = 0.0;     /// rad/s
+float angular_velocity_encoders = 0.0; /// rad/s
 float diff_angular_rate = 0.0;         ////rad/s
-float robotX = 0.0;                    ///m
-float robotY = 0.0;                    ///m
-float robotTheta = 0.0;                ///rad
+float robotX = 0.0;                    /// m
+float robotY = 0.0;                    /// m
+float robotTheta = 0.0;                /// rad
 float speed_M1 = 0.0;                  ////rad/s
 float speed_M2 = 0.0;                  ////rad/s
 float L_M1 = 0.0;                      ////displacement of wheel M1
@@ -89,7 +89,7 @@ float sp_angular_velocity = 0.0;
 float Kc_w = 18.5;
 float Ki_w = 18.5;
 float Kd_w = 0.15;
-float PWM_W_controller = 0.0; ///Salida en PWM////
+float PWM_W_controller = 0.0; /// Salida en PWM////
 
 ////////////////////////Point Tracker Controller///////////////////
 float Kc_pos = 0.75;
@@ -172,11 +172,11 @@ void setup()
 
 void loop()
 {
-    //while(1){
-    //Serial.println("Probando");
-    //delay(1000);
-    //L298N_move(0,0);
-    //}
+    // while(1){
+    // Serial.println("Probando");
+    // delay(1000);
+    // L298N_move(0,0);
+    // }
 
     unsigned long now_time = micros();
     unsigned long dt = (now_time - prev_time_inclination);
@@ -209,13 +209,13 @@ void loop()
         }
         prev_time_velocity = micros();
         ///////////Printiando Resultados para observar Comportamiento//////////////////
-        //Serial.print(speed_M1);
-        //Serial.print('\t');
-        //Serial.println(speed_M1_KF);
+        // Serial.print(speed_M1);
+        // Serial.print('\t');
+        // Serial.println(speed_M1_KF);
     }
 
     BluetoothSerial();
-    //L298N_move(250,0);
+    // L298N_move(250,0);
     L298N_move((PWM_output + PWM_W_controller), (PWM_output - PWM_W_controller));
 }
 
@@ -289,7 +289,7 @@ void MPU_Inicialization()
 void MPU_measurement()
 {
     sensor.getAcceleration(&ax, &ay, &az);
-    //sensor.getRotation(&gx, &gy, &gz);
+    // sensor.getRotation(&gx, &gy, &gz);
     gy = sensor.getRotationY();
     roll_gy = (float)(gy) / 131.072;
     inclination_ax = degrees(atan(1.0 * ax / sqrt(pow(ay, 2.0) + pow(az, 2.0))));
@@ -455,7 +455,7 @@ void BluetoothSerial()
     if (Serial3.available() > 0)
     {
         char command = Serial3.read();
-        //Serial.println(command);
+        // Serial.println(command);
 
         if (command == COMMAND_SETPOINT_SPEEDS)
         {
