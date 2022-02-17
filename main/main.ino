@@ -19,7 +19,7 @@
 unsigned char bufferData[4] = {0, 0, 0, 0};
 
 //////////////Robot Constant////////////////////////////////////
-#define MIN_ABS_SPEED 58              //// Minima señal de PWM a la que los motores se mueven : punto muerto para los motores
+#define MIN_ABS_SPEED 58              // 58              //// Minima señal de PWM a la que los motores se mueven : punto muerto para los motores
 #define SAMPLE_TIME_VELOCITY 20000    // microsegundos - 20 ms PID de velocidad
 #define SAMPLE_TIME_INCLINATION 10000 // microsegundos - 10 ms PID de inclinacion
 #define REVOLUTION_STEPS 1920.0
@@ -71,34 +71,34 @@ float linear_accel = 0.0;
 ////////////////////////////PID Controllers//////////////////////////
 ///////////Balancing Controller/////////////////////////////////////
 float sp_inclination = 0.0;
-float angle0 = -1.25;
+float angle0 = -0.1;
 float PWM_output = 0.0;
 float Kc_i = 23.75;
 float Ki_i = 20.5;
-float Kd_i = 2.00;
+float Kd_i = 1.5;
 
 ///////////Velocity Controller///////////////////////////////////////
 float sp_velocity = 0.0;
-float Kc_v = 10.00;
-float Ki_v = 6.0;
-float Kd_v = 0.1;
-float max_angle_output = 10;
+float Kc_v = 12; // 10.5
+float Ki_v = 6.5; // 6.5
+float Kd_v = 0.15; // 0.15
+float max_angle_output = 15;
 
 ////////////////////// Steering Controller ///////////////////////
 float sp_angular_velocity = 0.0;
 float Kc_w = 18.5;
 float Ki_w = 18.5;
 float Kd_w = 0.15;
-float PWM_W_controller = 0.0; /// Salida en PWM////
+float PWM_W_controller = 0.0; /// Salida en PWM//////////////////////
 
-////////////////////////Point Tracker Controller///////////////////
-float Kc_pos = 0.75;
-float Ki_pos = 1.5;
+////////////////////////Point Tracker Controller//////////////////////
+float Kc_pos = 1.0;
+float Ki_pos = 2.0;
 float Kd_pos = 0.005;
 float sum_pos_error = 0.0;
 float last_pos_error = 0.0;
-float MAX_VEL_PT = 0.5;
-float MAX_ANGULAR_VEL_PT = 3.5;
+float MAX_VEL_PT = 0.4;
+float MAX_ANGULAR_VEL_PT = 3.0;
 float TRESHOLD_PT = 0.02;
 float Kc_orient = 1.75;
 float sp_posX = 0.0;
@@ -159,7 +159,7 @@ void setup()
 {
     Serial.begin(115200);
     Serial3.begin(115200);
-    delay(350);
+    delay(150);
     MPU_Inicialization();
     L298N_Init();
     initInterruptsEncoders();
@@ -172,54 +172,16 @@ void setup()
 
 void loop()
 {
-    // while(1){
-    // Serial.println("Probando");
-    // delay(1000);
-    // L298N_move(0,0);
-    // }
+    pid_inclination_sub();
 
-    unsigned long now_time = micros();
-    unsigned long dt = (now_time - prev_time_inclination);
+    pid_velocity_sub();
 
-    /////////////PID de Inclinacion////////////////
-    if (dt >= SAMPLE_TIME_INCLINATION)
-    {
-        MPU_measurement();
-        float s_time = (float)(dt / 1000000.0);
-        getMeassurement(s_time);
-        inclination = comp_angle;
-        PWM_output = -1.0 * inclinationPID(sp_inclination, inclination, 255.0, s_time, Kc_i, Ki_i, Kd_i);
-        prev_time_inclination = micros();
-        /////////////////IMPRIMIENDO RESULTADOS////////////////
-    }
+    bluetooth_serial();
 
-    now_time = micros();
-    dt = (now_time - prev_time_velocity);
-
-    ///////PID de Velocidad Lineal y Angular/////////////////
-    if (dt >= SAMPLE_TIME_VELOCITY)
-    {
-        float s_time = (float)(dt / 1000000.0);
-        getState(s_time);
-        sp_inclination = velocityPID(sp_velocity, velocity_KF, max_angle_output, s_time, Kc_v, Ki_v, Kd_v) + angle0;
-        PWM_W_controller = angularVelocityPID(sp_angular_velocity, angular_velocity, 50.0, s_time, Kc_w, Ki_w, Kd_w);
-        if (GO2GoalMode)
-        {
-            PointTracker(s_time);
-        }
-        prev_time_velocity = micros();
-        ///////////Printiando Resultados para observar Comportamiento//////////////////
-        // Serial.print(speed_M1);
-        // Serial.print('\t');
-        // Serial.println(speed_M1_KF);
-    }
-
-    BluetoothSerial();
-    // L298N_move(250,0);
     L298N_move((PWM_output + PWM_W_controller), (PWM_output - PWM_W_controller));
 }
-
-//////////GETTING THE STATE///////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+//////////GETTING THE STATE/////////////////////////////////////////////////////////
 void getState(float dt)
 {
 
@@ -247,7 +209,6 @@ void getState(float dt)
     ///////////////////POSICION en X,Y,orientación//////////////////////////
     robotX = robotX + velocity * dt * cos(robotTheta + (angular_velocity * dt) / 2.0);
     robotY = robotY + velocity * dt * sin(robotTheta + (angular_velocity * dt) / 2.0);
-    // robotTheta = angle2PI( angle2PI(robotTheta) + angle2PI(angular_velocity_encoders*dt) );
     if (abs(diff_angular_rate) >= 0.25)
     {
         robotTheta = angle2PI(angle2PI(robotTheta) + angle2PI(angular_velocity_gyro * dt));
@@ -258,7 +219,32 @@ void getState(float dt)
     }
 }
 
-///////INTERRUPTS ENCODERS API//////////////////////////////
+/////////Kalman Filter estimator for DC motor //////////////////////////////////////
+void KF_DC_Speed(float speedM1_E, float speedM2_E, float dt)
+{
+    // ----------------------------------------
+    float taoM1 = speedM1_E - speed_M1_KF;
+    float taoM2 = speedM2_E - speed_M2_KF;
+    // ----------------------------------------
+    Q_v_M1 = ((alphaM1 * alphaM1) * (taoM1 * taoM1) * dt * dt) / (1 + ganmaM1 * speedM1_E * speedM1_E);
+    Q_v_M2 = ((alphaM2 * alphaM2) * (taoM2 * taoM2) * dt * dt) / (1 + ganmaM2 * speedM2_E * speedM2_E);
+    // ----------------------------------------
+    float priori_SpeedM1 = speed_M1_KF;
+    float priori_P_KF_M1 = P_KF_M1 + Q_v_M1;
+    float priori_SpeedM2 = speed_M2_KF;
+    float priori_P_KF_M2 = P_KF_M2 + Q_v_M2;
+    // ----------------------------------------
+    G_KF_M1 = priori_P_KF_M1 / (priori_P_KF_M1 + R_v_M1);
+    G_KF_M2 = priori_P_KF_M2 / (priori_P_KF_M2 + R_v_M2);
+    // ----------------------------------------
+    speed_M1_KF = priori_SpeedM1 + G_KF_M1 * (speedM1_E - priori_SpeedM1);
+    P_KF_M1 = (1 - G_KF_M1) * priori_P_KF_M1;
+    speed_M2_KF = priori_SpeedM2 + G_KF_M2 * (speedM2_E - priori_SpeedM2);
+    P_KF_M2 = (1 - G_KF_M2) * priori_P_KF_M2;
+}
+////////////////////////////////////////////////////////////////////////////////////
+
+///////INTERRUPTS ENCODERS API//////////////////////////////////////////////////////
 void initInterruptsEncoders()
 {
     pinMode(ENCODER_M1_A, INPUT);
@@ -272,8 +258,9 @@ void initInterruptsEncoders()
     ticks_M1 = 0;
     ticks_M2 = 0;
 }
-/////////////////////////////////////////////////////////////
-////////////////////////////////MPU SENSOR API////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////MPU SENSOR API//////////////////////////////////////
 void MPU_Inicialization()
 {
     Wire.begin();
@@ -312,7 +299,8 @@ void settingOffset(int ax, int ay, int az, int gx, int gy, int gz)
     sensor.setYGyroOffset(gy);
     sensor.setZGyroOffset(gz);
 }
-///////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////////////
+
 ///////////////////INTERRUPTS SUBRUTINES///////////////////////////////
 void count_ticks_M1A()
 { ///////////Motor 1 encoder A//////////
@@ -433,7 +421,7 @@ void L298N_move(int speedM1, int speedM2)
 void getBattery()
 {
     float x = 1.0206 * analogRead(pinA0) - 886.9202;
-    charge = 0.75 * charge + 0.25 * x;
+    charge = 0.90 * charge + 0.10 * x;
     charge = constrain(charge, 0.0, 100.0);
 }
 
@@ -447,10 +435,152 @@ void initSamplingBattery()
     TIMSK1 = 0x01;
     TIFR1 = 0x00;
 }
+/////////SUBRRUTINE To Timer1 INTERRUPT//////////////
+ISR(TIMER1_OVF_vect)
+{
+    getBattery();
+}
 
-//////////////////////////////////////////////////
-//////// Bluetooth Protocol Interface////////
-void BluetoothSerial()
+///////////////////////CONTROLERS RUTINES////////////////////////////////////////////////////
+//// PID INCLINATION ANGLE //////
+void pid_inclination_sub()
+{
+    unsigned long now_time = micros();
+    unsigned long dt = (now_time - prev_time_inclination);
+    if (dt >= SAMPLE_TIME_INCLINATION)
+    {
+        MPU_measurement();
+        float s_time = (float)(dt / 1000000.0);
+        getMeassurement(s_time);
+        inclination = comp_angle;
+        PWM_output = -1.0 * inclinationPID(sp_inclination, inclination, 255.0, s_time, Kc_i, Ki_i, Kd_i);
+        prev_time_inclination = micros();
+    }
+}
+
+//// PID VELOCITY LONGITUDINAL AND ROTATIONAL //////
+void pid_velocity_sub()
+{
+    unsigned long now_time = micros();
+    unsigned long dt = (now_time - prev_time_velocity);
+    if (dt >= SAMPLE_TIME_VELOCITY)
+    {
+        float s_time = (float)(dt / 1000000.0);
+        getState(s_time);
+        sp_inclination = velocityPID(sp_velocity, velocity_KF, max_angle_output, s_time, Kc_v, Ki_v, Kd_v) + angle0;
+        PWM_W_controller = angularVelocityPID(sp_angular_velocity, angular_velocity, 50.0, s_time, Kc_w, Ki_w, Kd_w);
+        if (GO2GoalMode)
+        {
+            point_tracker_sub(s_time);
+        }
+        prev_time_velocity = micros();
+    }
+}
+
+//// POINT TRACKER ///
+void point_tracker_sub(float dt)
+{
+    float theta_forward = robotTheta;
+    float theta_backward = robotTheta;
+    float posError = 0.0;
+    float orientError = 0.0;
+    float u_pos = 0.0;
+    float u_orient = 0.0;
+
+    if (theta_forward > PI && theta_forward < (2 * PI))
+    {
+        theta_forward = theta_forward - (2 * PI);
+    }
+    theta_backward = theta_forward - PI;
+    float dist_to_goal = sqrt(pow((sp_posX - robotX), 2.0) + pow((sp_posY - robotY), 2.0));
+    float theta_goal = atan2(sp_posY - robotY, sp_posX - robotX);
+
+    //////////Cambio de modos///////////
+    float backward_boundery = angle2PI(theta_backward) - angle2PI(theta_goal);
+    if ((abs(backward_boundery) <= 1.57) && dist_to_goal <= 1.25)
+    {
+        modePointTracker = 'B';
+    }
+    else
+    {
+        modePointTracker = 'F';
+    }
+
+    ////////////////////////////////////////////
+
+    if (modePointTracker == 'F')
+    {
+        //////// Orientation Controller/////
+        float dist1 = angle2PI(theta_goal) - angle2PI(theta_forward);
+        float dist2 = theta_goal - theta_forward;
+        if (abs(dist1) < abs(dist2))
+        {
+            orientError = dist1;
+        }
+        else if (abs(dist1) > abs(dist2))
+        {
+            orientError = dist2;
+        }
+        else
+        {
+            orientError = dist2;
+        }
+
+        /////////Orientacion Control//////////
+        u_orient = constrain(Kc_orient * orientError, -1.0 * MAX_ANGULAR_VEL_PT, MAX_ANGULAR_VEL_PT);
+
+        //////// Position Controller/////
+        posError = dist_to_goal;
+        sum_pos_error = Ki_pos * (sum_pos_error + posError) * dt;
+        sum_pos_error = constrain(sum_pos_error, -1.0 * MAX_VEL_PT, MAX_VEL_PT);
+        float I_term = sum_pos_error;
+        float D_term = Kd_pos * (posError - last_pos_error) / dt;
+        u_pos = constrain(Kc_pos * posError + I_term + D_term, -1.0 * MAX_VEL_PT, MAX_VEL_PT);
+        last_pos_error = posError;
+    }
+    else
+    {
+        float dist1 = angle2PI(theta_goal) - angle2PI(theta_backward);
+        float dist2 = theta_goal - theta_backward;
+        if (abs(dist1) < abs(dist2))
+        {
+            orientError = dist1;
+        }
+        else if (abs(dist1) > abs(dist2))
+        {
+            orientError = dist2;
+        }
+        else
+        {
+            orientError = dist1;
+        }
+        /////////Orientacion Control//////////
+        u_orient = constrain(Kc_orient * orientError, -1.0 * MAX_ANGULAR_VEL_PT, MAX_ANGULAR_VEL_PT);
+
+        //////// Position Controller/////
+        posError = dist_to_goal;
+        sum_pos_error = Ki_pos * (sum_pos_error + posError) * dt;
+        sum_pos_error = constrain(sum_pos_error, -1.0 * (MAX_VEL_PT - 0.05), (MAX_VEL_PT - 0.05));
+        float I_term = sum_pos_error;
+        float D_term = Kd_pos * (posError - last_pos_error) / dt;
+        u_pos = -1.0 * constrain(Kc_pos * posError + I_term + D_term, -1.0 * (MAX_VEL_PT - 0.05), (MAX_VEL_PT - 0.05));
+        last_pos_error = posError;
+    }
+
+    if (abs(posError) <= TRESHOLD_PT)
+    {
+        u_pos = 0.0;
+        u_orient = 0.0;
+    }
+
+    sp_velocity = u_pos;
+    sp_angular_velocity = u_orient;
+}
+//////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+//////// BLUETOOTH PROTOCOL INTERFACE/////////////////////////////////////////////////////////
+void bluetooth_serial()
 {
     if (Serial3.available() > 0)
     {
@@ -567,7 +697,9 @@ void BluetoothSerial()
         }
     }
 }
+//////////////////////////////////////////////////////////////////////////////////////////////
 
+/////////////////// UTILES //////////////////////////////////////////////////////////////////
 float bytesToFloat(unsigned char data[4])
 {
     float output;
@@ -576,12 +708,6 @@ float bytesToFloat(unsigned char data[4])
     *((unsigned char *)(&output) + 1) = data[1];
     *((unsigned char *)(&output) + 0) = data[0];
     return output;
-}
-
-/////////SUBRRUTINE To Timer1 INTERRUPT//////////////
-ISR(TIMER1_OVF_vect)
-{
-    getBattery();
 }
 
 float angle2PI(float angle)
@@ -597,126 +723,4 @@ float angle2PI(float angle)
     return angle;
 }
 
-void PointTracker(float dt)
-{
-
-    float theta_forward = robotTheta;
-    float theta_backward = robotTheta;
-    float posError = 0.0;
-    float orientError = 0.0;
-    float u_pos = 0.0;
-    float u_orient = 0.0;
-
-    if (theta_forward > PI && theta_forward < (2 * PI))
-    {
-        theta_forward = theta_forward - (2 * PI);
-    }
-    theta_backward = theta_forward - PI;
-    float dist_to_goal = sqrt(pow((sp_posX - robotX), 2.0) + pow((sp_posY - robotY), 2.0));
-    float theta_goal = atan2(sp_posY - robotY, sp_posX - robotX);
-
-    //////////Cambio de modos///////////
-    float backward_boundery = angle2PI(theta_backward) - angle2PI(theta_goal);
-    if ((abs(backward_boundery) <= 1.57) && dist_to_goal <= 1.25)
-    {
-        modePointTracker = 'B';
-    }
-    else
-    {
-        modePointTracker = 'F';
-    }
-
-    ////////////////////////////////////////////
-
-    if (modePointTracker == 'F')
-    {
-        //////// Orientation Controller/////
-        float dist1 = angle2PI(theta_goal) - angle2PI(theta_forward);
-        float dist2 = theta_goal - theta_forward;
-        if (abs(dist1) < abs(dist2))
-        {
-            orientError = dist1;
-        }
-        else if (abs(dist1) > abs(dist2))
-        {
-            orientError = dist2;
-        }
-        else
-        {
-            orientError = dist2;
-        }
-
-        /////////Orientacion Control//////////
-        u_orient = constrain(Kc_orient * orientError, -1.0 * MAX_ANGULAR_VEL_PT, MAX_ANGULAR_VEL_PT);
-
-        //////// Position Controller/////
-        posError = dist_to_goal;
-        sum_pos_error = Ki_pos * (sum_pos_error + posError) * dt;
-        sum_pos_error = constrain(sum_pos_error, -1.0 * MAX_VEL_PT, MAX_VEL_PT);
-        float I_term = sum_pos_error;
-        float D_term = Kd_pos * (posError - last_pos_error) / dt;
-        u_pos = constrain(Kc_pos * posError + I_term + D_term, -1.0 * MAX_VEL_PT, MAX_VEL_PT);
-        last_pos_error = posError;
-    }
-    else
-    {
-        float dist1 = angle2PI(theta_goal) - angle2PI(theta_backward);
-        float dist2 = theta_goal - theta_backward;
-        if (abs(dist1) < abs(dist2))
-        {
-            orientError = dist1;
-        }
-        else if (abs(dist1) > abs(dist2))
-        {
-            orientError = dist2;
-        }
-        else
-        {
-            orientError = dist1;
-        }
-        /////////Orientacion Control//////////
-        u_orient = constrain(Kc_orient * orientError, -1.0 * MAX_ANGULAR_VEL_PT, MAX_ANGULAR_VEL_PT);
-
-        //////// Position Controller/////
-        posError = dist_to_goal;
-        sum_pos_error = Ki_pos * (sum_pos_error + posError) * dt;
-        sum_pos_error = constrain(sum_pos_error, -1.0 * (MAX_VEL_PT - 0.05), (MAX_VEL_PT - 0.05));
-        float I_term = sum_pos_error;
-        float D_term = Kd_pos * (posError - last_pos_error) / dt;
-        u_pos = -1.0 * constrain(Kc_pos * posError + I_term + D_term, -1.0 * (MAX_VEL_PT - 0.05), (MAX_VEL_PT - 0.05));
-        last_pos_error = posError;
-    }
-
-    if (abs(posError) <= TRESHOLD_PT)
-    {
-        u_pos = 0.0;
-        u_orient = 0.0;
-    }
-
-    sp_velocity = u_pos;
-    sp_angular_velocity = u_orient;
-}
-
-/////////Kalman Filter estimator for DC motor //////////////////
-void KF_DC_Speed(float speedM1_E, float speedM2_E, float dt)
-{
-    // ----------------------------------------
-    float taoM1 = speedM1_E - speed_M1_KF;
-    float taoM2 = speedM2_E - speed_M2_KF;
-    // ----------------------------------------
-    Q_v_M1 = ((alphaM1 * alphaM1) * (taoM1 * taoM1) * dt * dt) / (1 + ganmaM1 * speedM1_E * speedM1_E);
-    Q_v_M2 = ((alphaM2 * alphaM2) * (taoM2 * taoM2) * dt * dt) / (1 + ganmaM2 * speedM2_E * speedM2_E);
-    // ----------------------------------------
-    float priori_SpeedM1 = speed_M1_KF;
-    float priori_P_KF_M1 = P_KF_M1 + Q_v_M1;
-    float priori_SpeedM2 = speed_M2_KF;
-    float priori_P_KF_M2 = P_KF_M2 + Q_v_M2;
-    // ----------------------------------------
-    G_KF_M1 = priori_P_KF_M1 / (priori_P_KF_M1 + R_v_M1);
-    G_KF_M2 = priori_P_KF_M2 / (priori_P_KF_M2 + R_v_M2);
-    // ----------------------------------------
-    speed_M1_KF = priori_SpeedM1 + G_KF_M1 * (speedM1_E - priori_SpeedM1);
-    P_KF_M1 = (1 - G_KF_M1) * priori_P_KF_M1;
-    speed_M2_KF = priori_SpeedM2 + G_KF_M2 * (speedM2_E - priori_SpeedM2);
-    P_KF_M2 = (1 - G_KF_M2) * priori_P_KF_M2;
-}
+//////////////////////////////////////////////////////////////////////////////////////////////
