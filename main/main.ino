@@ -1,27 +1,16 @@
-#include <Controllers.h>
-#include <ComplementaryFilter.h>
 #include "Wire.h"
 #include "MPU6050.h"
 #include "I2Cdev.h"
 #include "math.h"
-////////////////////Bluetooth Protocol/////////////////////////
-#define COMMAND_SETPOINT_SPEEDS 'A'
-#define COMMAND_GETSTATE 'B'
-#define SET_PID_K_INCLINATION 'C'
-#define GET_PID_K_INCLINATION 'D'
-#define SET_PID_K_VELOCITY 'E'
-#define GET_PID_K_VELOCITY 'F'
-#define SET_PID_K_ANGULAR_VELOCITY 'G'
-#define GET_PID_K_ANGULAR_VELOCITY 'H'
-#define POINT_TRACKER_MODE 'P'
-#define STOP_POINT_TRACKER_MODE 'S'
-#define RESET_DYNAMICAL_STATE 'R'
-unsigned char bufferData[4] = {0, 0, 0, 0};
+/////////////////////// MY CUSTOM LIBRARIES //////////////////////////
+#include <Controllers.h>
+#include <ComplementaryFilter.h>
+#include <BluetoothSerialSB.h>
 
-//////////////Robot Constant////////////////////////////////////
-#define MIN_ABS_SPEED 58              // 58              //// Minima señal de PWM a la que los motores se mueven : punto muerto para los motores
-#define SAMPLE_TIME_VELOCITY 20000    // microsegundos - 20 ms PID de velocidad
-#define SAMPLE_TIME_INCLINATION 10000 // microsegundos - 10 ms PID de inclinacion
+//////////////Robot Constant//////////////////////////////////////////
+#define MIN_ABS_SPEED 45              // 58              //// Minima señal de PWM a la que los motores se mueven : punto muerto para los motores
+#define SAMPLE_TIME_VELOCITY 14000    // microsegundos - 14 ms PID de velocidad
+#define SAMPLE_TIME_INCLINATION 10000 // microsegundos - 8 ms PID de inclinacion
 #define REVOLUTION_STEPS 1920.0
 #define WhEEL_RADIUS 0.048
 #define WhEEL_DISTANCE 0.245
@@ -71,18 +60,18 @@ float linear_accel = 0.0;
 ////////////////////////////PID Controllers//////////////////////////
 ///////////Balancing Controller/////////////////////////////////////
 float sp_inclination = 0.0;
-float angle0 = -0.1;
+float angle0 = 0;
 float PWM_output = 0.0;
-float Kc_i = 23.75;
-float Ki_i = 20.5;
-float Kd_i = 1.5;
+float Kc_i = 20.0;
+float Ki_i = 20.0;
+float Kd_i = 2.0;
 
 ///////////Velocity Controller///////////////////////////////////////
 float sp_velocity = 0.0;
-float Kc_v = 12; // 10.5
-float Ki_v = 6.5; // 6.5
-float Kd_v = 0.15; // 0.15
-float max_angle_output = 15;
+float Kc_v = 13.0; // 10.5
+float Ki_v = 6.5;  // 6.5
+float Kd_v = 0.1; // 0.15
+float max_angle_output = 20;
 
 ////////////////////// Steering Controller ///////////////////////
 float sp_angular_velocity = 0.0;
@@ -92,15 +81,13 @@ float Kd_w = 0.15;
 float PWM_W_controller = 0.0; /// Salida en PWM//////////////////////
 
 ////////////////////////Point Tracker Controller//////////////////////
-float Kc_pos = 1.0;
-float Ki_pos = 2.0;
+float Kc_pos = 0.5;
+float Ki_pos = 1.0;
 float Kd_pos = 0.005;
-float sum_pos_error = 0.0;
-float last_pos_error = 0.0;
-float MAX_VEL_PT = 0.4;
+float MAX_VEL_PT = 0.45;
 float MAX_ANGULAR_VEL_PT = 3.0;
 float TRESHOLD_PT = 0.02;
-float Kc_orient = 1.75;
+float Kc_orient = 1.0;
 float sp_posX = 0.0;
 float sp_posY = 0.0;
 char modePointTracker = ' ';
@@ -159,7 +146,6 @@ void setup()
 {
     Serial.begin(115200);
     Serial3.begin(115200);
-    delay(150);
     MPU_Inicialization();
     L298N_Init();
     initInterruptsEncoders();
@@ -172,6 +158,7 @@ void setup()
 
 void loop()
 {
+
     pid_inclination_sub();
 
     pid_velocity_sub();
@@ -417,6 +404,7 @@ void L298N_move(int speedM1, int speedM2)
     analogWrite(ENA, (int)abs(speedM1 * motorSpeedFactorM1));
     analogWrite(ENB, (int)abs(speedM2 * motorSpeedFactorM2));
 }
+
 ///////////////Battery Status//////////////
 void getBattery()
 {
@@ -467,248 +455,18 @@ void pid_velocity_sub()
     {
         float s_time = (float)(dt / 1000000.0);
         getState(s_time);
-        sp_inclination = velocityPID(sp_velocity, velocity_KF, max_angle_output, s_time, Kc_v, Ki_v, Kd_v) + angle0;
-        PWM_W_controller = angularVelocityPID(sp_angular_velocity, angular_velocity, 50.0, s_time, Kc_w, Ki_w, Kd_w);
+        sp_inclination = velocityPID(sp_velocity, velocity_KF, max_angle_output, s_time, Kc_v, Ki_v, Kd_v, inclination) + angle0;
+        PWM_W_controller = angularVelocityPID(sp_angular_velocity, angular_velocity, 50.0, s_time, Kc_w, Ki_w, Kd_w, inclination);
+
         if (GO2GoalMode)
         {
-            point_tracker_sub(s_time);
+            point_traker_method(s_time);
         }
+
         prev_time_velocity = micros();
     }
 }
 
-//// POINT TRACKER ///
-void point_tracker_sub(float dt)
-{
-    float theta_forward = robotTheta;
-    float theta_backward = robotTheta;
-    float posError = 0.0;
-    float orientError = 0.0;
-    float u_pos = 0.0;
-    float u_orient = 0.0;
-
-    if (theta_forward > PI && theta_forward < (2 * PI))
-    {
-        theta_forward = theta_forward - (2 * PI);
-    }
-    theta_backward = theta_forward - PI;
-    float dist_to_goal = sqrt(pow((sp_posX - robotX), 2.0) + pow((sp_posY - robotY), 2.0));
-    float theta_goal = atan2(sp_posY - robotY, sp_posX - robotX);
-
-    //////////Cambio de modos///////////
-    float backward_boundery = angle2PI(theta_backward) - angle2PI(theta_goal);
-    if ((abs(backward_boundery) <= 1.57) && dist_to_goal <= 1.25)
-    {
-        modePointTracker = 'B';
-    }
-    else
-    {
-        modePointTracker = 'F';
-    }
-
-    ////////////////////////////////////////////
-
-    if (modePointTracker == 'F')
-    {
-        //////// Orientation Controller/////
-        float dist1 = angle2PI(theta_goal) - angle2PI(theta_forward);
-        float dist2 = theta_goal - theta_forward;
-        if (abs(dist1) < abs(dist2))
-        {
-            orientError = dist1;
-        }
-        else if (abs(dist1) > abs(dist2))
-        {
-            orientError = dist2;
-        }
-        else
-        {
-            orientError = dist2;
-        }
-
-        /////////Orientacion Control//////////
-        u_orient = constrain(Kc_orient * orientError, -1.0 * MAX_ANGULAR_VEL_PT, MAX_ANGULAR_VEL_PT);
-
-        //////// Position Controller/////
-        posError = dist_to_goal;
-        sum_pos_error = Ki_pos * (sum_pos_error + posError) * dt;
-        sum_pos_error = constrain(sum_pos_error, -1.0 * MAX_VEL_PT, MAX_VEL_PT);
-        float I_term = sum_pos_error;
-        float D_term = Kd_pos * (posError - last_pos_error) / dt;
-        u_pos = constrain(Kc_pos * posError + I_term + D_term, -1.0 * MAX_VEL_PT, MAX_VEL_PT);
-        last_pos_error = posError;
-    }
-    else
-    {
-        float dist1 = angle2PI(theta_goal) - angle2PI(theta_backward);
-        float dist2 = theta_goal - theta_backward;
-        if (abs(dist1) < abs(dist2))
-        {
-            orientError = dist1;
-        }
-        else if (abs(dist1) > abs(dist2))
-        {
-            orientError = dist2;
-        }
-        else
-        {
-            orientError = dist1;
-        }
-        /////////Orientacion Control//////////
-        u_orient = constrain(Kc_orient * orientError, -1.0 * MAX_ANGULAR_VEL_PT, MAX_ANGULAR_VEL_PT);
-
-        //////// Position Controller/////
-        posError = dist_to_goal;
-        sum_pos_error = Ki_pos * (sum_pos_error + posError) * dt;
-        sum_pos_error = constrain(sum_pos_error, -1.0 * (MAX_VEL_PT - 0.05), (MAX_VEL_PT - 0.05));
-        float I_term = sum_pos_error;
-        float D_term = Kd_pos * (posError - last_pos_error) / dt;
-        u_pos = -1.0 * constrain(Kc_pos * posError + I_term + D_term, -1.0 * (MAX_VEL_PT - 0.05), (MAX_VEL_PT - 0.05));
-        last_pos_error = posError;
-    }
-
-    if (abs(posError) <= TRESHOLD_PT)
-    {
-        u_pos = 0.0;
-        u_orient = 0.0;
-    }
-
-    sp_velocity = u_pos;
-    sp_angular_velocity = u_orient;
-}
-//////////////////////////////////////////////////////////////////////////////////////////////
-
-//////////////////////////////////////////////////////////////////////////////////////////////
-//////// BLUETOOTH PROTOCOL INTERFACE/////////////////////////////////////////////////////////
-void bluetooth_serial()
-{
-    if (Serial3.available() > 0)
-    {
-        char command = Serial3.read();
-        // Serial.println(command);
-
-        if (command == COMMAND_SETPOINT_SPEEDS)
-        {
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            sp_velocity = bytesToFloat(bufferData);
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            sp_angular_velocity = bytesToFloat(bufferData);
-            GO2GoalMode = 0;
-            sum_pos_error = 0.0;
-        }
-        else if (command == POINT_TRACKER_MODE)
-        {
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            sp_posX = bytesToFloat(bufferData);
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            sp_posY = bytesToFloat(bufferData);
-            GO2GoalMode = 1;
-        }
-        else if (command == COMMAND_GETSTATE)
-        {
-            Serial3.println(velocity);
-            Serial3.println(angular_velocity);
-            Serial3.println(inclination);
-            Serial3.println(robotX);
-            Serial3.println(robotY);
-            Serial3.println(degrees(robotTheta));
-            Serial3.println(charge);
-        }
-        else if (command == SET_PID_K_INCLINATION)
-        {
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            Kc_i = bytesToFloat(bufferData);
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            Ki_i = bytesToFloat(bufferData);
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            Kd_i = bytesToFloat(bufferData);
-        }
-        else if (command == GET_PID_K_INCLINATION)
-        {
-            Serial3.println(Kc_i);
-            Serial3.println(Ki_i);
-            Serial3.println(Kd_i);
-        }
-        else if (command == SET_PID_K_VELOCITY)
-        {
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            Kc_v = bytesToFloat(bufferData);
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            Ki_v = bytesToFloat(bufferData);
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            Kd_v = bytesToFloat(bufferData);
-        }
-        else if (command == GET_PID_K_VELOCITY)
-        {
-            Serial3.println(Kc_v);
-            Serial3.println(Ki_v);
-            Serial3.println(Kd_v);
-        }
-        else if (command == SET_PID_K_ANGULAR_VELOCITY)
-        {
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            Kc_w = bytesToFloat(bufferData);
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            Ki_w = bytesToFloat(bufferData);
-            while (Serial3.available() < 4)
-                ;
-            Serial3.readBytes(bufferData, 4);
-            Kd_w = bytesToFloat(bufferData);
-        }
-        else if (command == GET_PID_K_ANGULAR_VELOCITY)
-        {
-            Serial3.println(Kc_w);
-            Serial3.println(Ki_w);
-            Serial3.println(Kd_w);
-        }
-        else if (command == RESET_DYNAMICAL_STATE)
-        {
-            robotX = 0.0;
-            robotY = 0.0;
-            robotTheta = 0.0;
-            GO2GoalMode = 0;
-            sum_pos_error = 0.0;
-            sp_velocity = 0.0;
-            sp_angular_velocity = 0.0;
-        }
-    }
-}
-//////////////////////////////////////////////////////////////////////////////////////////////
-
-/////////////////// UTILES //////////////////////////////////////////////////////////////////
-float bytesToFloat(unsigned char data[4])
-{
-    float output;
-    *((unsigned char *)(&output) + 3) = data[3];
-    *((unsigned char *)(&output) + 2) = data[2];
-    *((unsigned char *)(&output) + 1) = data[1];
-    *((unsigned char *)(&output) + 0) = data[0];
-    return output;
-}
 
 float angle2PI(float angle)
 {
