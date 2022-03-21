@@ -8,12 +8,12 @@
 #include <BluetoothSerialSB.h>
 
 //////////////Robot Constant//////////////////////////////////////////
-#define MIN_ABS_SPEED 45              // 58              //// Minima señal de PWM a la que los motores se mueven : punto muerto para los motores
-#define SAMPLE_TIME_VELOCITY 14000    // microsegundos - 14 ms PID de velocidad
-#define SAMPLE_TIME_INCLINATION 10000 // microsegundos - 8 ms PID de inclinacion
+float MIN_ABS_SPEED = 48;            // 58              //// Minima señal de PWM a la que los motores se mueven : punto muerto para los motores
+#define SAMPLE_TIME_VELOCITY 8000    // microsegundos - 12.5 ms PID de velocidad
+#define SAMPLE_TIME_INCLINATION 8000 // microsegundos - 10 ms PID de inclinacion
 #define REVOLUTION_STEPS 1920.0
-#define WhEEL_RADIUS 0.048
-#define WhEEL_DISTANCE 0.245
+#define WHEEL_RADIUS 0.048
+#define WHEEL_DISTANCE 0.245
 #define ROBOT_HEIGHT 0.30
 #define PULSES_FACTOR ((2.0f * PI) / REVOLUTION_STEPS)
 
@@ -62,28 +62,29 @@ float linear_accel = 0.0;
 float sp_inclination = 0.0;
 float angle0 = 0;
 float PWM_output = 0.0;
-float Kc_i = 20.0;
+float Kc_i = 20.5;
 float Ki_i = 20.0;
 float Kd_i = 2.0;
 
 ///////////Velocity Controller///////////////////////////////////////
 float sp_velocity = 0.0;
-float Kc_v = 13.0; // 10.5
-float Ki_v = 6.5;  // 6.5
-float Kd_v = 0.1; // 0.15
-float max_angle_output = 20;
+float Kc_v = 10.5;  // 10.5
+float Ki_v = 6.0;   // 6.5
+float Kd_v = 0.025; // 0.1
+float max_angle_output = 40;
 
 ////////////////////// Steering Controller ///////////////////////
 float sp_angular_velocity = 0.0;
 float Kc_w = 18.5;
 float Ki_w = 18.5;
 float Kd_w = 0.15;
+float max_pwm_output_steering = 100;
 float PWM_W_controller = 0.0; /// Salida en PWM//////////////////////
 
 ////////////////////////Point Tracker Controller//////////////////////
 float Kc_pos = 0.5;
-float Ki_pos = 1.0;
-float Kd_pos = 0.005;
+float Ki_pos = 0.5;
+float Kd_pos = 0.001;
 float MAX_VEL_PT = 0.45;
 float MAX_ANGULAR_VEL_PT = 3.0;
 float TRESHOLD_PT = 0.02;
@@ -185,12 +186,12 @@ void getState(float dt)
     ////////Estimacion con Filtro de Kalman///////////////
     KF_DC_Speed(speed_M1, speed_M2, dt);
     ///////////////////Velocidad lineal del Robot/////////
-    velocity = (WhEEL_RADIUS * (speed_M1 + speed_M2)) / 2.0;
-    velocity_KF = (WhEEL_RADIUS * (speed_M1_KF + speed_M2_KF)) / 2.0;
+    velocity = (WHEEL_RADIUS * (speed_M1 + speed_M2)) / 2.0;
+    velocity_KF = (WHEEL_RADIUS * (speed_M1_KF + speed_M2_KF)) / 2.0;
 
     ///////////////////// Velocidad angular del robot ///////////////////////
     angular_velocity_gyro = -1.0 * radians((float)(sensor.getRotationZ()) / 131.072);
-    angular_velocity_encoders = ((speed_M1 - speed_M2) * (WhEEL_RADIUS / WhEEL_DISTANCE));
+    angular_velocity_encoders = ((speed_M1 - speed_M2) * (WHEEL_RADIUS / WHEEL_DISTANCE));
     angular_velocity = 0.75 * angular_velocity_gyro + 0.25 * angular_velocity_encoders;
     diff_angular_rate = angular_velocity_gyro - angular_velocity_encoders;
     ///////////////////POSICION en X,Y,orientación//////////////////////////
@@ -456,7 +457,7 @@ void pid_velocity_sub()
         float s_time = (float)(dt / 1000000.0);
         getState(s_time);
         sp_inclination = velocityPID(sp_velocity, velocity_KF, max_angle_output, s_time, Kc_v, Ki_v, Kd_v, inclination) + angle0;
-        PWM_W_controller = angularVelocityPID(sp_angular_velocity, angular_velocity, 50.0, s_time, Kc_w, Ki_w, Kd_w, inclination);
+        PWM_W_controller = angularVelocityPID(sp_angular_velocity, angular_velocity, max_pwm_output_steering, s_time, Kc_w, Ki_w, Kd_w, inclination);
 
         if (GO2GoalMode)
         {
@@ -466,7 +467,6 @@ void pid_velocity_sub()
         prev_time_velocity = micros();
     }
 }
-
 
 float angle2PI(float angle)
 {
