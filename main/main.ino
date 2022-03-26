@@ -8,12 +8,12 @@
 #include <BluetoothSerialSB.h>
 
 //////////////Robot Constant//////////////////////////////////////////
-float MIN_ABS_SPEED = 48;            // 58              //// Minima señal de PWM a la que los motores se mueven : punto muerto para los motores
+float MIN_ABS_SPEED = 10;            // 58              //// Minima señal de PWM a la que los motores se mueven : punto muerto para los motores
 #define SAMPLE_TIME_VELOCITY 8000    // microsegundos - 12.5 ms PID de velocidad
 #define SAMPLE_TIME_INCLINATION 8000 // microsegundos - 10 ms PID de inclinacion
 #define REVOLUTION_STEPS 1920.0
-#define WHEEL_RADIUS 0.048
-#define WHEEL_DISTANCE 0.245
+#define WHEEL_RADIUS 0.06
+#define WHEEL_DISTANCE 0.31
 #define ROBOT_HEIGHT 0.30
 #define PULSES_FACTOR ((2.0f * PI) / REVOLUTION_STEPS)
 
@@ -64,12 +64,12 @@ float angle0 = 0;
 float PWM_output = 0.0;
 float Kc_i = 20.5;
 float Ki_i = 20.0;
-float Kd_i = 2.0;
+float Kd_i = 1.8;
 
 ///////////Velocity Controller///////////////////////////////////////
 float sp_velocity = 0.0;
-float Kc_v = 10.5;  // 10.5
-float Ki_v = 6.0;   // 6.5
+float Kc_v = 9.35;  // 10.5
+float Ki_v = 6.5;   // 6.5
 float Kd_v = 0.025; // 0.1
 float max_angle_output = 40;
 
@@ -82,9 +82,9 @@ float max_pwm_output_steering = 100;
 float PWM_W_controller = 0.0; /// Salida en PWM//////////////////////
 
 ////////////////////////Point Tracker Controller//////////////////////
-float Kc_pos = 0.5;
-float Ki_pos = 0.5;
-float Kd_pos = 0.001;
+float Kc_pos = 0.75;
+float Ki_pos = 1.5;
+float Kd_pos = 0.0025;
 float MAX_VEL_PT = 0.45;
 float MAX_ANGULAR_VEL_PT = 3.0;
 float TRESHOLD_PT = 0.02;
