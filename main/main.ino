@@ -71,7 +71,7 @@ float sp_velocity = 0.0;
 float Kc_v = 9.35;  // 10.5
 float Ki_v = 6.5;   // 6.5
 float Kd_v = 0.025; // 0.1
-float max_angle_output = 40;
+float max_angle_output = 45;
 
 ////////////////////// Steering Controller ///////////////////////
 float sp_angular_velocity = 0.0;
@@ -456,13 +456,12 @@ void pid_velocity_sub()
     {
         float s_time = (float)(dt / 1000000.0);
         getState(s_time);
+        tradeoffVelocityMaxAngleInclination();
         sp_inclination = velocityPID(sp_velocity, velocity_KF, max_angle_output, s_time, Kc_v, Ki_v, Kd_v, inclination) + angle0;
         PWM_W_controller = angularVelocityPID(sp_angular_velocity, angular_velocity, max_pwm_output_steering, s_time, Kc_w, Ki_w, Kd_w, inclination);
 
         if (GO2GoalMode)
-        {
             point_traker_method(s_time);
-        }
 
         prev_time_velocity = micros();
     }
@@ -482,3 +481,12 @@ float angle2PI(float angle)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////
+
+void tradeoffVelocityMaxAngleInclination()
+{
+    max_angle_output = 45;
+    if (abs(sp_velocity) > 0.70)
+        max_angle_output = 25;
+    if (abs(sp_velocity) > 0.80)
+        max_angle_output = 15;
+}
