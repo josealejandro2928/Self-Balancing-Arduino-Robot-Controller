@@ -68,7 +68,7 @@ float Kd_i = 1.8;
 
 ///////////Velocity Controller///////////////////////////////////////
 float sp_velocity = 0.0;
-float Kc_v = 9.35;  // 10.5
+float Kc_v = 10.5;  // 10.5
 float Ki_v = 6.5;   // 6.5
 float Kd_v = 0.025; // 0.1
 float max_angle_output = 45;
