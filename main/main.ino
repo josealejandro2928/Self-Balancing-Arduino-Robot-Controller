@@ -9,8 +9,7 @@
 
 //////////////Robot Constant//////////////////////////////////////////
 float MIN_ABS_SPEED = 10;            // 58              //// Minima señal de PWM a la que los motores se mueven : punto muerto para los motores
-#define SAMPLE_TIME_VELOCITY 8000    // microsegundos - 12.5 ms PID de velocidad
-#define SAMPLE_TIME_INCLINATION 8000 // microsegundos - 10 ms PID de inclinacion
+#define SAMPLE_TIME 8000             // microsegundos - 8 ms PID
 #define REVOLUTION_STEPS 1920.0
 #define WHEEL_RADIUS 0.06
 #define WHEEL_DISTANCE 0.31
@@ -39,28 +38,24 @@ float robotY = 0.0;                    /// m
 float robotTheta = 0.0;                /// rad
 float speed_M1 = 0.0;                  ////rad/s
 float speed_M2 = 0.0;                  ////rad/s
-float L_M1 = 0.0;                      ////displacement of wheel M1
-float L_M2 = 0.0;                      ////displacement of wheel M2
 int GO2GoalMode = 0;
 unsigned int recargaTimer = 3035; ////Timer1 Recharger to 25ms
 
 ///////////////////////MPU Global Variables//////////////////////
 MPU6050 sensor;
-int ax, ay, az;
-int gx, gy, gz;
+int16_t ax, ay, az;
+int16_t gx, gy, gz;
 ComplementaryFilter CF(0.98, 0.02, 0.0);
 /////////////////////////////////////////////////////////
 float inclination_ax = 0.0;
 float roll_gy = 0.0;
 float last_roll_gy = 0.0;
 float gyro_angle = 0.0;
-float comp_angle = 0.0;
 float linear_accel = 0.0;
 
 ////////////////////////////PID Controllers//////////////////////////
 ///////////Balancing Controller/////////////////////////////////////
 float sp_inclination = 0.0;
-float angle0 = 0;
 float PWM_output = 0.0;
 float Kc_i = 20.5;
 float Ki_i = 20.0;
@@ -79,7 +74,7 @@ float Kc_w = 18.5;
 float Ki_w = 18.5;
 float Kd_w = 0.15;
 float max_pwm_output_steering = 100;
-float PWM_W_controller = 0.0; /// Salida en PWM//////////////////////
+float PWM_Steering = 0.0; /// Salida en PWM//////////////////////
 
 ////////////////////////Point Tracker Controller//////////////////////
 float Kc_pos = 0.75;
@@ -91,7 +86,6 @@ float TRESHOLD_PT = 0.02;
 float Kc_orient = 1.0;
 float sp_posX = 0.0;
 float sp_posY = 0.0;
-char modePointTracker = ' ';
 
 ///////Kalman FIlter EStimator for Velocity/////////////////////////
 ////////MotorM1/////
@@ -116,6 +110,7 @@ float ganmaM2 = 1.0;
 //////////////////MOTORS Global Variables//////////////////////
 unsigned long prev_time_inclination = 0; //////guardan el tiempo anterior para el calculo del tiempo en que efectuan el control loop
 unsigned long prev_time_velocity = 0;    //////guardan el tiempo anterior para el calculo del tiempo en que efectuan control loop
+
 volatile long ticks_M1 = 0;
 volatile long ticks_M2 = 0;
 long last_ticks_M1 = 0;
@@ -161,16 +156,13 @@ void loop()
 {
 
     pid_inclination_sub();
-
     pid_velocity_sub();
-
     bluetooth_serial();
-
-    L298N_move((PWM_output + PWM_W_controller), (PWM_output - PWM_W_controller));
+    L298N_move((PWM_output + PWM_Steering), (PWM_output - PWM_Steering));
 }
 ////////////////////////////////////////////////////////////////////////////////////
 //////////GETTING THE STATE/////////////////////////////////////////////////////////
-void getState(float dt)
+void getVelocitiesAndRobotPositionState(float dt)
 {
 
     long delta_ticks_M1 = (ticks_M1 - last_ticks_M1);
@@ -270,11 +262,9 @@ void MPU_measurement()
     inclination_ax = degrees(atan(1.0 * ax / sqrt(pow(ay, 2.0) + pow(az, 2.0))));
 }
 
-void getMeassurement(float dt)
+void getTiltMeassurement(float dt)
 {
-    comp_angle = CF.get_measurement(inclination_ax, roll_gy, dt);
-    linear_accel = (ax - sin(radians(comp_angle)) * 16384.0) * (0.000598144);
-    //    linear_accel = cos(radians(comp_angle))*(linear_accel - ( radians(roll_gy) - radians(last_roll_gy) )*(ROBOT_HEIGHT/dt) );
+    inclination = CF.get_measurement(inclination_ax, roll_gy, dt);
     last_roll_gy = roll_gy;
 }
 
@@ -436,13 +426,12 @@ void pid_inclination_sub()
 {
     unsigned long now_time = micros();
     unsigned long dt = (now_time - prev_time_inclination);
-    if (dt >= SAMPLE_TIME_INCLINATION)
+    if (dt >= SAMPLE_TIME)
     {
 
         MPU_measurement();
         float s_time = (float)(dt / 1000000.0);
-        getMeassurement(s_time);
-        inclination = comp_angle;
+        getTiltMeassurement(s_time);
         PWM_output = -1.0 * inclinationPID(sp_inclination, inclination, 255.0, s_time, Kc_i, Ki_i, Kd_i);
         prev_time_inclination = micros();
     }
@@ -453,13 +442,13 @@ void pid_velocity_sub()
 {
     unsigned long now_time = micros();
     unsigned long dt = (now_time - prev_time_velocity);
-    if (dt >= SAMPLE_TIME_VELOCITY)
+    if (dt >= SAMPLE_TIME)
     {
         float s_time = (float)(dt / 1000000.0);
-        getState(s_time);
+        getVelocitiesAndRobotPositionState(s_time);
         tradeoffVelocityMaxAngleInclination();
-        sp_inclination = velocityPID(sp_velocity, velocity_KF, max_angle_output, s_time, Kc_v, Ki_v, Kd_v, inclination) + angle0;
-        PWM_W_controller = angularVelocityPID(sp_angular_velocity, angular_velocity, max_pwm_output_steering, s_time, Kc_w, Ki_w, Kd_w, inclination);
+        sp_inclination = velocityPID(sp_velocity, velocity_KF, max_angle_output, s_time, Kc_v, Ki_v, Kd_v, inclination);
+        PWM_Steering = angularVelocityPID(sp_angular_velocity, angular_velocity, max_pwm_output_steering, s_time, Kc_w, Ki_w, Kd_w, inclination);
 
         if (GO2GoalMode)
             point_traker_method(s_time);
@@ -467,6 +456,7 @@ void pid_velocity_sub()
         prev_time_velocity = micros();
     }
 }
+
 
 float angle2PI(float angle)
 {
