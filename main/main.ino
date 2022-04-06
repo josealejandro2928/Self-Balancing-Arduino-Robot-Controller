@@ -438,6 +438,7 @@ void pid_inclination_sub()
     unsigned long dt = (now_time - prev_time_inclination);
     if (dt >= SAMPLE_TIME_INCLINATION)
     {
+
         MPU_measurement();
         float s_time = (float)(dt / 1000000.0);
         getMeassurement(s_time);
@@ -485,8 +486,8 @@ float angle2PI(float angle)
 void tradeoffVelocityMaxAngleInclination()
 {
     max_angle_output = 45;
-    if (abs(sp_velocity) > 0.70)
+    if (abs(sp_velocity) > 0.75)
         max_angle_output = 25;
-    if (abs(sp_velocity) > 0.80)
+    if (abs(sp_velocity) > 0.90)
         max_angle_output = 15;
 }
