@@ -22,7 +22,6 @@ extern float robotTheta;
 extern float Kc_pos;
 extern float Ki_pos;
 extern float Kd_pos;
-extern char modePointTracker;
 extern float MAX_VEL_PT;
 extern float MAX_ANGULAR_VEL_PT;
 extern float TRESHOLD_PT;
@@ -32,6 +31,7 @@ extern float Kc_orient;
 ///////////////////////////////////////////////////////////////////////////////
 
 //////////Global Variables////////////
+char modePointTracker = 'F';
 float last_inclination = 0.0;
 float sum_error_inclination = 0.0;
 
