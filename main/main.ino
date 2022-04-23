@@ -198,7 +198,6 @@ void getVelocitiesAndRobotPositionState(float dt)
     ///////////////////Velocidad lineal del Robot/////////
     // velocity = (WHEEL_RADIUS * (speed_M1 + speed_M2)) / 2.0;
     velocity = (WHEEL_RADIUS * (speed_M1_KF + speed_M2_KF)) / 2.0;
-  
 
     ///////////////////// Velocidad angular del robot ///////////////////////
     angular_velocity_gyro = -1.0 * radians((float)(sensor.getRotationZ()) / 131.072);
@@ -467,7 +466,9 @@ void pid_velocity_sub()
         float s_time = (float)(dt / 1000000.0);
         getVelocitiesAndRobotPositionState(s_time);
         tradeoffVelocityMaxAngleInclination();
-        sp_inclination = velocityPID(sp_velocity, velocity, max_angle_output, s_time, Kc_v, Ki_v, Kd_v, inclination);
+        float ctrlConstants[3] = {Kc_v, Ki_v, Kd_v};
+        switchConstantBetweenTiltVelMode(ctrlConstants);
+        sp_inclination = velocityPID(sp_velocity, velocity, max_angle_output, s_time, ctrlConstants[0], ctrlConstants[1], ctrlConstants[2], inclination);
         PWM_Steering = angularVelocityPID(sp_angular_velocity, angular_velocity, max_pwm_output_steering, s_time, Kc_w, Ki_w, Kd_w, inclination);
 
         if (GO2GoalMode)
@@ -499,4 +500,15 @@ void tradeoffVelocityMaxAngleInclination()
         max_angle_output = 25;
     if (abs(sp_velocity) > 0.90)
         max_angle_output = 15;
+}
+
+void switchConstantBetweenTiltVelMode(float *readjustConstant)
+{
+    // THE USER OR THE AUTOMONUS CONTROLLER SET A SETPOINT, THIS ENABLE VEL MODE  WE CHANGE FOR CONSTANT BETTER FOR CONTROL VELOCITY
+    if (abs(sp_velocity) > 0.10)
+    {
+        readjustConstant[0] = 8.0;
+        readjustConstant[1] = 5.5;
+        readjustConstant[2] = 0.025;
+    }
 }
