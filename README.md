@@ -1,6 +1,6 @@
 # This project
 
-A two-wheeled self-balancing robot based on an Arduino micro controller and 12 V DC motors. A logic is implemented on top of a cascaded PID controller to obtain the best performance in speed and tilt control. For the user interface, a mobile application was developed using Ionic 
+A two-wheeled self-balancing robot based on an Arduino micro controller and 12 V DC motors. A logic is implemented on top of a cascaded PID controller to obtain the best performance in speed and tilt control. For the user interface, a mobile application was developed using Ionic
 
 ## Main Code
 
@@ -16,23 +16,23 @@ Here we import the libraries used to interact with the MPU6050 inertial unit and
 <img src="https://user-images.githubusercontent.com/37028825/164944606-1e68961e-2881-43e3-976e-58d663b78416.png" width="600"/>
 
 You can find those packages in the path:
+
 ``` sh
 ./USED_LIBRARIES
 ```
-**if you don't know how to add libraries to the arduino IDE visit this link**: 
-[https://docs.arduino.cc/software/ide-v1/tutorials/installing-libraries]
 
+**if you don't know how to add libraries to the arduino IDE visit this link**:
+[https://docs.arduino.cc/software/ide-v1/tutorials/installing-libraries]
 
 ## Block Diagram of Control Algorithms
 
 ![image](https://user-images.githubusercontent.com/37028825/164944911-e4f5bff5-50cd-4e1b-9f39-7eb1f345e617.png)
 
-
 ## Hardware connection
 
 ![image](https://user-images.githubusercontent.com/37028825/164944809-b879fc69-ef65-486a-b801-3ddeb7aeae59.png)
 
-##  Mobile Application Images
+## Mobile Application Images
 
 ![image](https://user-images.githubusercontent.com/37028825/164945038-bf0f2db6-e50d-4aa4-b6c9-dd862b1f382e.png)
 
@@ -40,9 +40,9 @@ The repo for the mobile application is at:
 
 [https://github.com/josealejandro2928/controller-selfbalancing-robot-v2]
 
-
 ## Robot results
-### Watch videos of the robot in this links:
+
+### Watch videos of the robot in this links
 
 [![main video](https://media-exp1.licdn.com/dms/image/sync/C4E27AQHoYDjRXYum1Q/articleshare-shrink_800/0/1650225441705?e=2147483647&v=beta&t=MVa15-GMcQ24pGtz-Pgde-uTOCKB2VxyYCMe7VwTT0s)](https://www.youtube.com/watch?v=NTQIz3hWsak)
 
