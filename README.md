@@ -34,7 +34,7 @@ You can find those packages in the path:
 
 ## Mobile Application Images
 
-![image](https://user-images.githubusercontent.com/37028825/164945038-bf0f2db6-e50d-4aa4-b6c9-dd862b1f382e.png)
+<img src="https://user-images.githubusercontent.com/37028825/165102821-c934f39b-0220-4a4f-b4c4-c7a608f18580.png" width="800"  />
 
 ### The repo for the mobile application is at:
 
