@@ -36,7 +36,7 @@ You can find those packages in the path:
 
 ![image](https://user-images.githubusercontent.com/37028825/164945038-bf0f2db6-e50d-4aa4-b6c9-dd862b1f382e.png)
 
-The repo for the mobile application is at:
+### The repo for the mobile application is at:
 
 [https://github.com/josealejandro2928/ionic-react-mobile-app-self-balancing-robot]
 
