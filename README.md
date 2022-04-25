@@ -38,7 +38,7 @@ You can find those packages in the path:
 
 The repo for the mobile application is at:
 
-[https://github.com/josealejandro2928/controller-selfbalancing-robot-v2]
+[https://github.com/josealejandro2928/ionic-react-mobile-app-self-balancing-robot]
 
 ## Robot results
 
