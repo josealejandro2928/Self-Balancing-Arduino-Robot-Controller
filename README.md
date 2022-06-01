@@ -44,8 +44,9 @@ You can find those packages in the path:
 
 ### Watch videos of the robot in this links
 
-[![main video](https://media-exp1.licdn.com/dms/image/sync/C4E27AQHoYDjRXYum1Q/articleshare-shrink_800/0/1650225441705?e=2147483647&v=beta&t=MVa15-GMcQ24pGtz-Pgde-uTOCKB2VxyYCMe7VwTT0s)](https://www.youtube.com/watch?v=NTQIz3hWsak)
+[![main video](https://user-images.githubusercontent.com/37028825/171403987-cf097c4e-5f7c-4eaf-8e32-ab204e08aa4c.jpeg)](https://www.youtube.com/watch?v=NTQIz3hWsak)
 
-[![main video 2](https://media-exp1.licdn.com/dms/image/sync/C4D27AQEmOZ0t977IvQ/articleshare-shrink_800/0/1650744012047?e=2147483647&v=beta&t=uszsP1K_WxqRwiHf1cKw5MvTG6UA9ftaZmSf5iL4E4k)](https://www.youtube.com/watch?v=mijxUfsSrdE)
+[![main video 2](https://user-images.githubusercontent.com/37028825/171404073-87242390-c586-41d4-9e78-adff395a45c2.jpeg)](https://www.youtube.com/watch?v=mijxUfsSrdE)
 
-[![main video 2](https://media-exp1.licdn.com/dms/image/sync/C4E27AQGTRxc4k5051w/articleshare-shrink_800/0/1648242738932?e=2147483647&v=beta&t=efO4rj6X8Rad44_dpQQ8JhWYrrs8W4pU4eZYuNL0jNU)](https://www.youtube.com/watch?v=O6BeBPsemHU)
+[![main video 3](https://user-images.githubusercontent.com/37028825/171404132-7b037bd7-13df-4bab-a089-fac8ab39bd72.jpeg)](https://www.youtube.com/watch?v=O6BeBPsemHU)
+
